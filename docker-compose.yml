@@ -1,0 +1,22 @@
+version: '3.8'
+services:
+  web:
+    image: belong-work-app:latest
+    ports:
+      - "8080:80"
+    networks:
+      - belong-net
+    
+  zap-scanner:
+    image: owasp/zap2docker-stable
+    command: zap-baseline.py -t http://web:80 -x report.xml -r report.html
+    depends_on:
+      - web
+    volumes:
+      - ./reports:/zap/reports
+    networks:
+      - belong-net
+
+networks:
+  belong-net:
+    driver: bridge
