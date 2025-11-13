@@ -1,41 +1,41 @@
-name: Belong Work - Security Scan
+name: OWASP ZAP Security Scan - Belong Work
 
 on:
   push:
-    branches: [ master ]
+    branches: [ main ]
   pull_request:
-    branches: [ master ]
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  security-scan:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.10'
-
-      - name: Start demo server
-        run: |
-          pip install pytest
-          nohup python3 server.py & sleep 2
-      - name: Run OWASP ZAP baseline via Docker
-        uses: docker://owasp/zap2docker-stable
-        with:
-          args: >
-            zap-baseline.py -t http://localhost:8080 -r zap-report.html -J zap-report.json
-
-      - name: Upload ZAP HTML report
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-report-html
-          path: zap-report.html
-
-      - name: Upload ZAP JSON report
-        uses: actions/upload-artifact@v4
-        with:
-          name: zap-report-json
-          path: zap-report.json ##oi##
+    - name: Checkout code
+      uses: actions/checkout@v3
+      
+    - name: Build Docker application
+      run: |
+        docker build -t belong-work-app:latest .
+        
+    - name: Start application container
+      run: |
+        docker run -d --name belong-web -p 8080:80 belong-work-app:latest
+        sleep 10
+        
+    - name: Run OWASP ZAP Scan
+      run: |
+        docker run --rm \
+          -v $(pwd)/reports:/zap/reports \
+          -t owasp/zap2docker-stable \
+          zap-baseline.py -t http://host.docker.internal:8080 -x report.xml -r report.html
+          
+    - name: Upload Security Report
+      uses: actions/upload-artifact@v3
+      with:
+        name: zap-security-report
+        path: reports/
+        
+    - name: Scan Complete
+      run: echo "✅ OWASP ZAP Security Scan finished!"
