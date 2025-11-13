@@ -2,9 +2,9 @@ name: OWASP ZAP Security Scan - Belong Work
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, master ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
@@ -13,8 +13,12 @@ jobs:
     
     steps:
     - name: Checkout code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4  # CORRIGIDO: versão atualizada
       
+    - name: Set up Docker
+      run: |
+        sudo systemctl start docker || true
+        
     - name: Build Docker application
       run: |
         docker build -t belong-work-app:latest .
@@ -22,20 +26,27 @@ jobs:
     - name: Start application container
       run: |
         docker run -d --name belong-web -p 8080:80 belong-work-app:latest
-        sleep 10
+        sleep 15  # Mais tempo para aplicação iniciar
         
     - name: Run OWASP ZAP Scan
       run: |
+        mkdir -p reports
         docker run --rm \
+          --network host \
           -v $(pwd)/reports:/zap/reports \
           -t owasp/zap2docker-stable \
-          zap-baseline.py -t http://host.docker.internal:8080 -x report.xml -r report.html
+          zap-baseline.py -t http://localhost:8080 -x report.xml -r report.html
           
     - name: Upload Security Report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4  # CORRIGIDO: versão atualizada
       with:
         name: zap-security-report
         path: reports/
+        
+    - name: Cleanup
+      run: |
+        docker stop belong-web || true
+        docker rm belong-web || true
         
     - name: Scan Complete
       run: echo "✅ OWASP ZAP Security Scan finished!"
